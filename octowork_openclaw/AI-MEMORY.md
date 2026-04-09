@@ -1,6 +1,6 @@
 # AI 工作记忆 — octowork_openclaw
 
-> 最后更新：2026-04-09（全文档通读完成）
+> 最后更新：2026-04-09（openclaw-node-sdk 全源码完整写入记忆，清除重复章节）
 
 ---
 
@@ -360,58 +360,520 @@ blocked → ready → in_progress → completed → passed（QC通过）
 
 ---
 
-## 长期记忆 · 第六章：openclaw-node-sdk 解析
+## 长期记忆 · 第六章：openclaw-node-sdk 完整解析
 
-### SDK 架构
-```
-Operator App ←──WS──→ OpenClaw Gateway(:18789) ←──WS──→ Worker Node
-```
-- **两个角色**：
-  - `operator`：主控方（Dashboard/CLI），可 list nodes、invoke commands
-  - `node`：工作节点，声明自己支持哪些 commands，接收并执行
+> 源码位置：`docs/openclaw-node-sdk/`  
+> 版本：`@openclaw/node-sdk v0.1.0`  
+> 文件清单：`src/types.ts` / `src/identity.ts` / `src/client.ts` / `src/index.ts` / `examples/operator.ts` / `examples/worker-node.ts`
 
-### 核心类 `OpenClawClient extends EventEmitter`
-- **连接方式**：WebSocket（ws:// 或 wss://）
-- **认证**：Ed25519 Challenge-Response 握手（`identity.ts`）
-  - 设备ID = SHA256(raw_32byte_pubkey) → hex
-  - 签名负载：`v3|deviceId|clientId|clientMode|role|scopes|signedAtMs|token|nonce|platform|deviceFamily`
-- **关键方法**：
-  - `connect()` / `disconnect()`
-  - `request(method, params)` → Promise（带30秒超时）
-  - `invokeNode({nodeId, command, params})` → 调用远端节点命令
-  - `listNodes()` → 获取已连接节点列表
-  - `send(msg)` → 发送原始JSON消息
-- **事件**：`connected` / `disconnected` / `error` / `event` / `message`
-- **自动重连**：断开后指数退避（1s→30s）
+---
 
-### 握手协议（Protocol v3）
-```
-Server → Client: {type:"event", event:"connect.challenge", payload:{nonce}}
-Client → Server: {type:"req", method:"connect", params:{role, scopes, client, auth, device, ...}}
-Server → Client: {type:"res", ok:true, payload:{auth:{deviceToken, role, scopes}}}
+### 6.1 包基本信息
+
+```json
+name: "@openclaw/node-sdk"
+version: "0.1.0"
+type: "module"            // ESM，import 语法
+main: "dist/index.js"
+engines: { node: ">=22.0.0" }   // ⚠️ 要求 Node 22+
+依赖: { "ws": "^8.18.0" }        // 唯一运行时依赖，WebSocket 客户端
+构建: tsc → dist/         // TypeScript 编译到 dist/
+target: ES2022, module: Node16
 ```
 
-### Node模式（Node role）
+**⚠️ 关键限制**：Node.js 版本必须 >= 22，目前 octowork-chat 用的 Node 18，集成前要确认版本问题。
+
+---
+
+### 6.2 整体架构
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                  OpenClaw Gateway (:18789)                    │
+│                                                              │
+│  Operator A ◄──WS──►                    ◄──WS──► Node 1(RPi)│
+│  (你的 App)          Challenge-Response           (Android)  │
+│  Operator B ◄──WS──► Ed25519 Auth      ◄──WS──► Node 2      │
+│  (Dashboard)         node.invoke routing◄──WS──► Node 3(Linux│
+└──────────────────────────────────────────────────────────────┘
+
+消息流：
+Operator → gateway: "invoke screenshot on Node 2"
+Gateway  → Node 2:  event { "node.invoke.request", command:"screenshot" }
+Node 2   → Gateway: request { "node.invoke.result", ok:true, image:"..." }
+Gateway  → Operator: response { payload: { image:"..." } }
+```
+
+**两个角色，职责完全对立**：
+
+| 角色 | 是谁 | 能做什么 | scopes |
+|------|------|---------|--------|
+| `operator` | 你的 App / Dashboard / CLI | 发 RPC、调用 Node、列出 Node | `operator.admin / read / write` |
+| `node` | Worker 设备 / IoT / AI Agent | 接收并执行命令，返回结果 | `[]`（零权限） |
+
+---
+
+### 6.3 所有 TypeScript 类型（src/types.ts）
+
+#### WebSocket 帧格式（3 种）
+
 ```typescript
-// Worker节点声明命令
-commands: ["ping", "screenshot", "shell"]
+// 客户端 → 服务端：发请求
+RequestFrame  { type:"req",   id:string, method:string, params:{} }
 
-// 收到调用时
-onInvoke: async (command, params) => {
-  // 执行并返回结果
-  return { result: "..." }
+// 服务端 → 客户端：回响应
+ResponseFrame { type:"res",   id:string, ok:boolean, payload?:{}, error?:{code?,message,details?} }
+
+// 服务端 → 客户端：推事件
+EventFrame    { type:"event", event:string, seq?:number, payload?:{} }
+```
+
+#### 握手相关类型
+
+```typescript
+ConnectParams {
+  minProtocol: 3,    // 固定值，当前只支持 Protocol v3
+  maxProtocol: 3,
+  role: "operator" | "node",
+  scopes?: string[],
+  client: ClientInfo,    // { id, displayName?, version?, platform?, deviceFamily?, mode }
+  caps?: string[],       // 客户端能力声明
+  commands?: string[],   // node 模式：声明支持的命令列表
+  auth?: ConnectAuth,    // { token?, bootstrapToken?, deviceToken?, password? }
+  device?: DeviceAuth,   // Ed25519 签名对象
+}
+
+ConnectResult {
+  auth?: { deviceToken?, role?, scopes? },
+  policy?: { tickIntervalMs? }   // 服务端下发的心跳间隔
 }
 ```
 
-### 与现有 openclaw.js 的关键区别
-| 对比 | 现有 api/openclaw.js | openclaw-node-sdk |
-|------|---------------------|-------------------|
-| 协议 | CLI 进程包装（spawn） | WebSocket 直连 Gateway |
-| 认证 | 无（只传 agent/session 参数） | Ed25519 设备身份认证 |
-| 角色 | 单一（调用 OpenClaw Agent） | operator + node 双角色 |
-| 能力 | 发消息/获取回复 | 发消息 + 调用任意 Node 命令 |
-| 节点控制 | 无 | `listNodes()`, `invokeNode()` |
-| 连接 | 进程级（spawn每次新建） | 持久 WebSocket 连接 |
+#### NodeInvoke 相关类型
+
+```typescript
+NodeInvokeParams {     // 调用方传入
+  nodeId: string,
+  command: string,
+  params?: {},
+  idempotencyKey?: string,   // 幂等键，自动生成 sdk-{counter}-{timestamp}
+  timeoutMs?: number,
+}
+
+NodeInvokeRequest {    // Gateway 转发给 Node 的事件 payload
+  id: string,          // requestId，Node 回复时必须带回
+  nodeId: string,
+  command: string,
+  paramsJSON?: string, // JSON 字符串格式（优先）
+  params?: {},         // 对象格式（备用）
+  timeoutMs?: number,
+}
+
+NodeInvokeResultParams {  // Node → Gateway 的 invoke.result 请求
+  id: string,          // 对应 requestId
+  nodeId: string,
+  ok: boolean,
+  payloadJSON?: string, // 结果 JSON 字符串
+  error?: { code?, message? }
+}
+```
+
+#### NodeInfo（listNodes 返回的节点信息）
+
+```typescript
+NodeInfo {
+  nodeId: string,         // 设备 ID（SHA256 of pubkey）
+  displayName?: string,
+  platform?: string,      // "darwin" / "linux" / "android"
+  version?: string,
+  clientId?: string,
+  clientMode?: string,
+  deviceFamily?: string,  // "mobile" / "desktop" / ""
+  remoteIp?: string,
+  caps?: string[],
+  commands?: string[],    // 该 Node 声明支持的命令列表
+  connectedAtMs?: number,
+  approvedAtMs?: number,
+  paired?: boolean,       // 是否已通过 approve
+  connected?: boolean,    // 当前是否在线
+}
+```
+
+#### DeviceIdentityData（本地存储格式）
+
+```typescript
+DeviceIdentityData {
+  version: 1,          // 固定
+  deviceId: string,    // SHA256(raw_32byte_pubkey) → hex
+  publicKeyPem: string,
+  privateKeyPem: string,
+  createdAtMs: number,
+}
+// 存储：JSON 文件，权限 0o600（仅本人可读）
+```
+
+#### OpenClawClientOptions（构造函数入参）
+
+```typescript
+OpenClawClientOptions {
+  gatewayUrl: string,          // 必填，ws:// 或 wss://
+  gatewayToken?: string,       // Gateway 认证 token（env: OPENCLAW_GATEWAY_TOKEN）
+  role: "operator" | "node",   // 必填
+  scopes?: string[],           // operator 填权限；node 填 []
+  clientId?: string,           // 默认：node→"node-host"，operator→"cli"
+  clientDisplayName?: string,
+  clientVersion?: string,      // 默认 "0.1.0"
+  platform?: string,           // 默认 process.platform
+  deviceFamily?: string,       // 默认 ""
+  clientMode?: string,         // 默认：node→"node"，operator→"cli"
+  caps?: string[],             // 默认 []
+  commands?: string[],         // node 模式必填，声明支持的命令
+  identity?: DeviceIdentityData,  // 设备身份，用于持久化配对
+  onInvoke?: (command, params) => Promise<unknown>,  // node 模式命令处理器
+  reconnectBaseMs?: number,    // 默认 1000ms
+  reconnectMaxMs?: number,     // 默认 30000ms
+  requestTimeoutMs?: number,   // 默认 30000ms（30秒）
+}
+```
+
+---
+
+### 6.4 Ed25519 身份系统（src/identity.ts）
+
+**核心原理**：每个客户端有一个持久化的 Ed25519 密钥对，用 SHA256(公钥) 作为设备ID，连接时用私钥签名证明身份。
+
+#### 关键函数
+
+```typescript
+// 加载或生成身份（首次自动创建，后续直接读文件）
+loadOrCreateIdentity(filePath: string): DeviceIdentityData
+  // 文件不存在 → generateKeyPairSync("ed25519") → 写入 JSON（mode: 0o600）
+  // 文件存在且有效 → 直接返回
+
+// 推导设备ID
+deriveDeviceId(publicKeyPem: string): string
+  // 原理：提取 Ed25519 SPKI DER 中的原始32字节公钥 → SHA256 → hex
+
+// 构建连接握手签名对象
+buildDeviceAuth(identity, nonce, opts): DeviceAuth
+  // 1. 构造签名负载字符串（V3格式）
+  // 2. Ed25519 sign(payload_utf8) → Base64URL 签名
+  // 3. 返回 { id, publicKey(Base64URL), signature(Base64URL), signedAt, nonce }
+```
+
+#### 签名负载 V3 格式（极重要）
+
+```
+v3|{deviceId}|{clientId}|{clientMode}|{role}|{scopes_sorted_joined}|{signedAtMs}|{token}|{nonce}|{platform_lower}|{deviceFamily_lower}
+```
+
+示例：
+```
+v3|abc123...|cli|cli|operator|operator.admin,operator.read|1712345678000||nonce123|darwin|
+```
+
+**注意**：
+- scopes 需要 sort() 后再 join(",")，顺序必须一致
+- platform 和 deviceFamily 都要 `.toLowerCase().trim()`
+- token 如果没有填空字符串（不是 undefined）
+- SPKI DER 前缀是 `302a300506032b6570032100`（12字节），剥掉后才是原始32字节公钥
+
+---
+
+### 6.5 核心客户端（src/client.ts）— 逐行级理解
+
+#### 私有状态变量
+
+```typescript
+ws: WebSocket | null                    // 当前 WS 连接
+pendingRequests: Map<id, {resolve, reject, timeout}>  // 等待响应的请求
+requestCounter: number                  // 自增计数器，用于生成 id
+reconnectDelay: number                  // 当前重连等待时间（指数退避）
+reconnectTimer: setTimeout | null       // 重连定时器句柄
+handshakeCompleted: boolean             // connect 握手是否完成
+_connected: boolean                     // 公开 connected getter 的底层值
+_closed: boolean                        // 是否已主动 disconnect()
+storedDeviceToken: string | null        // Gateway 下发的 deviceToken（持久化用）
+```
+
+#### 连接流程（完整时序）
+
+```
+client.connect()
+  → new WebSocket(gatewayUrl)
+  → ws.on("open") → emit("ws:open")   // WS 建立，但握手还没完成
+  → ws.on("message")
+      → handleMessage()
+          → type="event" → handleEvent()
+              → event="connect.challenge" → sendConnect(nonce)  ← 握手开始
+                  → buildDeviceAuth(nonce)
+                  → request("connect", ConnectParams)           ← 发送握手请求
+                      → pendingRequests.set(id, {resolve,reject,timeout})
+                      → send({ type:"req", id, method:"connect", params })
+              → event="node.invoke.request" → handleNodeInvoke(payload)  ← Node收到命令
+              → event="tick" → 忽略
+              → 其他 → emit("event", event, payload)
+          → type="res" → handleResponse()
+              → pendingRequests.get(id) → clearTimeout → resolve/reject
+              → 握手响应: resolve → handshakeCompleted=true, _connected=true
+                        → 存储 deviceToken → emit("connected", result)
+  → ws.on("close") → _connected=false → emit("disconnected") → scheduleReconnect()
+  → ws.on("error") → emit("error")
+```
+
+#### request() — 请求-响应模式
+
+```typescript
+// 发一个 RPC 请求，等待对应 id 的 res 帧
+async request(method, params = {}): Promise<{}>
+  id = `sdk-${++counter}-${Date.now()}`
+  → send({ type:"req", id, method, params })
+  → pendingRequests.set(id, { resolve, reject, timeout(30s) })
+  → 收到 res 帧 → handleResponse() → pendingRequests.get(id).resolve(payload)
+  → 超时 → pendingRequests.delete(id) → reject(Error)
+```
+
+#### invokeNode() — 调用 Worker Node 命令
+
+```typescript
+async invokeNode({ nodeId, command, params, idempotencyKey, timeoutMs })
+  → request("node.invoke", {
+      nodeId, command, params:{},
+      idempotencyKey: 自动生成 sdk-xxx,
+      timeoutMs(可选)
+    })
+  → 返回 Gateway 转发 Node 执行结果的 payload
+```
+
+#### handleNodeInvoke() — Node 模式收到调用
+
+```typescript
+// 收到 event:"node.invoke.request"
+private async handleNodeInvoke(payload)
+  requestId = payload.id
+  command   = payload.command
+  params    = JSON.parse(payload.paramsJSON) 或 payload.params
+  
+  try:
+    result = await this.opts.onInvoke(command, params)   // 调用用户注册的处理器
+    request("node.invoke.result", { id:requestId, nodeId, ok:true, payloadJSON:JSON.stringify(result) })
+  catch(e):
+    request("node.invoke.result", { id:requestId, nodeId, ok:false, error:{code:"COMMAND_FAILED", message} })
+```
+
+#### 重连机制
+
+```typescript
+scheduleReconnect()
+  // ws.close 触发 → scheduleReconnect()
+  // reconnectDelay 从 1s 开始，每次 *2，上限 30s
+  // _closed=true 时不重连（主动 disconnect 后）
+  
+disconnect()
+  // _closed = true → 阻止后续重连
+  // clearTimeout(reconnectTimer)
+  // flushPending(Error("client disconnected"))  → 拒绝所有 pending 请求
+  // ws.close(1000)
+```
+
+---
+
+### 6.6 导出清单（src/index.ts）
+
+```typescript
+// 类
+export { OpenClawClient } from "./client.js"
+
+// 身份函数
+export { loadOrCreateIdentity, deriveDeviceId, publicKeyBase64Url,
+         signPayload, buildPayloadV3, buildDeviceAuth } from "./identity.js"
+
+// 所有类型（type-only）
+export type { OpenClawClientOptions, ConnectParams, ConnectAuth, ConnectResult,
+  ClientInfo, DeviceAuth, DeviceIdentityData, NodeInvokeParams, NodeInvokeRequest,
+  NodeInvokeResult, NodeInvokeResultParams, NodeInfo,
+  RequestFrame, ResponseFrame, EventFrame, GatewayFrame }
+```
+
+---
+
+### 6.7 两个示例的关键代码模式
+
+#### Operator 示例（examples/operator.ts）
+
+```typescript
+// 环境变量：OPENCLAW_GATEWAY_TOKEN
+const identity = loadOrCreateIdentity("./data/operator-identity.json")
+const client = new OpenClawClient({
+  gatewayUrl: "ws://localhost:18789",
+  gatewayToken: process.env.OPENCLAW_GATEWAY_TOKEN ?? "",
+  role: "operator",
+  scopes: ["operator.admin", "operator.read", "operator.write"],
+  identity,
+  clientId: "cli",
+})
+
+client.on("connected", async () => {
+  const nodes = await client.listNodes()   // 获取所有 Worker 节点
+  const target = nodes.find(n => n.connected)
+  
+  // 调用命令
+  const result = await client.invokeNode({
+    nodeId: target.nodeId,
+    command: "foreground_app",        // 无参数命令
+  })
+  const screenshot = await client.invokeNode({
+    nodeId: target.nodeId,
+    command: "screenshot",
+    params: { quality: 50, maxWidth: 640 },  // 有参数命令
+  })
+})
+
+// ⚠️ 首次连接报 "pairing required"，需要在 Gateway 主机执行：
+// openclaw devices list
+// openclaw devices approve <requestId>
+```
+
+#### Worker Node 示例（examples/worker-node.ts）
+
+```typescript
+// 环境变量：GATEWAY_URL（默认 ws://localhost:18789）、OPENCLAW_GATEWAY_TOKEN
+const identity = loadOrCreateIdentity("./data/worker-identity.json")
+const client = new OpenClawClient({
+  gatewayUrl: process.env.GATEWAY_URL ?? "ws://localhost:18789",
+  gatewayToken: process.env.OPENCLAW_GATEWAY_TOKEN ?? "",
+  role: "node",      // ← 关键：node 角色
+  scopes: [],        // ← node 永远是空 scopes
+  commands: ["ping", "hostname", "shell", "screenshot"],  // ← 声明支持的命令
+  identity,
+  clientId: "node-host",
+  clientDisplayName: `Worker (${hostname()})`,
+  platform: process.platform,
+  
+  onInvoke: async (command, params) => {
+    switch (command) {
+      case "ping":      return { pong: true, timestamp: Date.now() }
+      case "hostname":  return { hostname: hostname(), platform: process.platform }
+      case "shell":     return execSync(params.command, { timeout:10000 })
+      case "screenshot": return { image: "base64...", format: "jpeg" }
+      default: throw new Error(`Unknown command: ${command}`)
+    }
+  }
+})
+
+// Worker 保持长连接（不 disconnect），监听 SIGINT 优雅退出
+process.on("SIGINT", () => { client.disconnect(); process.exit(0) })
+```
+
+---
+
+### 6.8 与现有 api/openclaw.js 的精确对比
+
+| 维度 | 现有 `backend/api/openclaw.js` | `openclaw-node-sdk` |
+|------|-------------------------------|---------------------|
+| **协议** | `spawn('openclaw', [...args])` — 每次新建子进程 | WebSocket 持久连接 |
+| **认证** | 无（靠 OpenClaw 本地 config） | Ed25519 设备身份 + deviceToken |
+| **角色** | 只有 operator 方向，单向调用 | operator + node 双向 |
+| **通信** | 单向：发→等结果→结束 | 双向：可接收 Gateway 推送的命令 |
+| **node.invoke** | 不支持（不能调用其他 worker） | 支持，`invokeNode()` |
+| **listNodes** | 不支持 | 支持，`listNodes()` |
+| **超时** | 靠 `--timeout` 参数 | 内置 30s 超时 + 自动 reject |
+| **重连** | 不需要（每次 spawn） | 自动指数退避重连（1s→30s） |
+| **幂等** | 无 | `idempotencyKey` 自动生成 |
+| **身份持久化** | 无 | JSON 文件，首次批准后无需再批准 |
+| **Node.js 版本** | 适配当前版本 | **要求 >= 22.0.0** ⚠️ |
+
+---
+
+### 6.9 集成到 octowork-chat 的完整方案
+
+#### 方案选择：octowork-chat 应该用 operator 还是 node 角色？
+
+**答案：两个都要用。**
+
+```
+octowork-chat 后端作为 operator：
+  → 发消息给 AI Agent（相当于现在的 openclaw.js sendMessage）
+  → listNodes() 查看哪些 Bot 在线
+  → invokeNode() 调用 Bot 执行特定命令
+
+octowork-chat 后端作为 node（可选，高级功能）：
+  → 注册自己为 Worker，接受 Gateway 主动推来的事件
+  → 实现真正的"Bot 主动找用户"，不需要 Bot 轮询
+  → 目前 send-to-user 是 Bot 自己 HTTP POST 过来的，不够优雅
+```
+
+#### 最小改动方案（只替换 openclaw.js，operator 角色）
+
+**第一步：安装 SDK**
+```bash
+# 注意：octowork-chat 后端需要升级到 Node 22，或者直接 copy src/ 进来
+cd backend && npm install @openclaw/node-sdk
+```
+
+**第二步：改造 `backend/api/openclaw.js`**
+
+```javascript
+// 原来（CLI spawn 方式）：
+const { spawn } = require('child_process')
+function sendMessage(botId, message, sessionId) {
+  return new Promise((resolve, reject) => {
+    const proc = spawn('openclaw', ['--agent', botId, '--message', message, '--session-id', sessionId, '--json'])
+    // 等进程结束，解析 stdout JSON
+  })
+}
+
+// 改成（SDK WebSocket 方式）：
+import { OpenClawClient, loadOrCreateIdentity } from '@openclaw/node-sdk'
+
+const identity = loadOrCreateIdentity('./data/octowork-identity.json')
+const client = new OpenClawClient({
+  gatewayUrl: process.env.OPENCLAW_GATEWAY_URL ?? 'ws://localhost:18789',
+  gatewayToken: process.env.OPENCLAW_GATEWAY_TOKEN ?? '',
+  role: 'operator',
+  scopes: ['operator.admin', 'operator.read', 'operator.write'],
+  identity,
+  clientDisplayName: 'OctoWork Chat Manager',
+})
+
+client.connect()  // 启动时建立持久连接，不在每次消息时连接
+
+async function sendMessage(botId, message, sessionId) {
+  const result = await client.invokeNode({
+    nodeId: botId,        // botId 即 nodeId
+    command: 'chat',      // Gateway 约定的命令名
+    params: { message, sessionId },
+  })
+  return result
+}
+```
+
+**第三步：需要确认的问题**（与用户讨论）
+1. Gateway 的 `OPENCLAW_GATEWAY_URL` 是什么？（本地 ws://localhost:18789 还是远程？）
+2. Bot 的 `nodeId` 和现在的 `botId` 是同一个值吗？
+3. Gateway 支持的 `chat` command 参数格式是什么？
+4. Node.js 版本问题：后端当前版本是否 >= 22？
+
+#### 不升级 Node.js 的备选方案
+
+如果 Node 版本升级有风险，可以把 SDK 的 `src/` 直接 copy 进来，改 `.ts` 为 `.js`（或用 `tsx` 运行），避免版本依赖问题。SDK 只依赖 `ws` 包和 Node 内置 `crypto`/`events`。
+
+---
+
+### 6.10 关键常量与默认值速查
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `clientId` | `"cli"`（operator）/ `"node-host"`（node） | 必须匹配 Gateway 的 `GATEWAY_CLIENT_IDS` |
+| `clientMode` | `"cli"`（operator）/ `"node"`（node） | 必须匹配 Gateway 的 `GATEWAY_CLIENT_MODES` |
+| `scopes`（operator）| `["operator.admin"]` | 默认只有 admin |
+| `scopes`（node）| `[]` | node 永远空 |
+| Gateway 端口 | `18789` | OpenClaw Gateway 默认端口 |
+| `requestTimeoutMs` | `30000`（30s） | 超时后 reject |
+| `reconnectBaseMs` | `1000`（1s） | 首次重连等待 |
+| `reconnectMaxMs` | `30000`（30s） | 最大重连等待 |
+| Protocol version | `3`（min=max=3） | 固定，当前只支持 v3 |
+| 身份文件权限 | `0o600` | 仅所有者可读写 |
 
 ---
 
