@@ -1,6 +1,6 @@
 # AI 工作记忆 — octowork_openclaw
 
-> 最后更新：2026-04-09（openclaw-node-sdk 全源码完整写入记忆，清除重复章节）
+> 最后更新：2026-04-09（完成 openclaw 源码深度扫描，写入第八章商业融入方案）
 
 ---
 
@@ -942,3 +942,385 @@ async function sendMessage(botId, message, sessionId) {
 3. **记忆注入优先级**：从文件系统注入 vs. 依赖 OpenClaw session（哪种方式改动更小）？
 4. **`api/openclaw-fixed.js`** 是什么？（docs 中提到，但未读到）
 5. **企微/AI员工/章鱼学院/技能市场（06-09章）**：文档全部为空，功能还没开始建，融合时暂不考虑。
+
+---
+
+## 长期记忆 · 第八章：openclaw 源码深度扫描 & 商业融入方案
+
+> 源码位置：`octowork_openclaw/openclaw源码/`（来自 github.com/openclaw/openclaw，MIT 协议）  
+> 扫描日期：2026-04-09  
+> **商业目标：用户只需安装 octowork，即可像 openclaw 一样调用工具、配置模型、创建 Agent 和部门，完全独立运营**
+
+---
+
+### 8.1 项目规模一览
+
+| 指标 | 数值 |
+|------|------|
+| 总大小（含 git） | 582 MB |
+| 纯源码大小（不含 node_modules/.git） | 145 MB |
+| 总文件数 | 13,354 |
+| 代码行数（.ts/.js，不含 node_modules/dist） | **30 万行** |
+| 核心目录 | `src/`(54MB) `extensions/`(42MB) `apps/`(18MB) |
+
+---
+
+### 8.2 核心架构地图（src/ 目录拆解）
+
+```
+src/
+├── agents/                  ⭐ AI Agent 运行时（核心，最重要）
+│   ├── pi-embedded-runner/  ← LLM调用/对话循环/自动压缩（最核心）
+│   ├── pi-embedded-runner.ts← 导出入口：runEmbeddedPiAgent()
+│   ├── bash-tools.exec.ts   ← bash工具执行（1835行）
+│   ├── pi-tools.ts          ← 所有工具注册（662行）
+│   ├── memory-search.ts     ← 记忆语义搜索（434行）
+│   ├── models-config.ts     ← 模型配置（198行）
+│   ├── model-selection.ts   ← 模型选择逻辑（898行）
+│   ├── system-prompt.ts     ← 系统Prompt构建（大）
+│   ├── skills/              ← Skills系统（任务手册注入）
+│   ├── sandbox/             ← Docker沙箱隔离
+│   └── auth-profiles/       ← 多API Key轮换
+├── gateway/                 ⭐ WebSocket控制平面
+│   ├── server.ts            ← Gateway主服务
+│   ├── server-methods/      ← 所有RPC方法（chat/sessions/nodes/config...）
+│   ├── protocol/            ← 通信协议Schema（TypeBox）
+│   └── boot.ts              ← 启动时执行BOOT.md任务
+├── config/                  ⭐ 配置系统（类型+Schema+IO）
+│   ├── schema.ts            ← 完整配置Schema
+│   ├── types.agents.ts      ← Agent配置类型
+│   ├── types.models.ts      ← 模型配置类型
+│   ├── sessions/            ← Session存储/读写/锁
+│   └── types.*.ts           ← 各模块类型定义
+├── sessions/                Session标识/路由/生命周期
+├── memory-host-sdk/         向量记忆系统（embedding + SQLite）
+├── extensions/              ← 各平台插件（模块化，可选加载）
+│   ├── anthropic/           ← Claude
+│   ├── openai/              ← GPT
+│   ├── google/              ← Gemini
+│   ├── deepseek/ ollama/ xai/ groq/ ... ← 其他30+个模型
+│   ├── whatsapp/ telegram/ discord/ ...← 消息平台（我们不需要）
+│   └── browser/ memory-core/ ...       ← 工具插件
+├── auto-reply/              消息自动路由（收到消息→选择session→触发Agent）
+├── routing/                 session-key路由规则
+├── plugins/                 插件加载/发现/注册
+└── web/                     Web UI（Control Panel）
+```
+
+---
+
+### 8.3 LLM 调用核心：`pi-embedded-runner`
+
+**这是整个系统最核心的部分**，我们融入的核心也在这里。
+
+#### 依赖关系
+```
+runEmbeddedPiAgent()   ← 唯一入口
+  └── @mariozechner/pi-agent-core    ← Agent运行时核心库（不是openclaw自己写的）
+  └── @mariozechner/pi-ai            ← AI抽象层
+  └── @mariozechner/pi-coding-agent  ← SessionManager / createAgentSession
+```
+
+**关键：OpenClaw 自己也是依赖 `pi-agent-core` 这个第三方库来运行 LLM，它不是从零自己写的 LLM 调用。**
+
+#### 核心文件行数
+| 文件 | 行数 | 职责 |
+|------|------|------|
+| `pi-embedded-runner/run.ts` | 1622 | Agent运行主循环（含failover/重试） |
+| `pi-embedded-runner/run/attempt.ts` | 2335 | 单次LLM调用（最核心） |
+| `pi-embedded-runner/compact.ts` | 1463 | Context压缩（超token时自动摘要） |
+| `pi-embedded-runner/model.ts` | 829 | 模型解析/切换/failover |
+| `pi-embedded-runner/system-prompt.ts` | 109 | System Prompt构建入口 |
+| `bash-tools.exec.ts` | 1835 | Bash工具执行 |
+| `pi-tools.ts` | 662 | 工具注册（read/write/bash/browser...） |
+
+#### 默认模型
+```typescript
+DEFAULT_PROVIDER = "openai"
+DEFAULT_MODEL    = "gpt-5.4"
+DEFAULT_CONTEXT_TOKENS = 200_000
+```
+
+---
+
+### 8.4 支持的 LLM Provider（31个）
+
+通过 extensions/ 模块化插件系统加载：
+
+| 类别 | Provider |
+|------|----------|
+| **主流闭源** | openai, anthropic, google, xai, microsoft-foundry |
+| **中国模型** | deepseek, qwen, minimax, moonshot, kimi-coding, volcengine, alibaba, byteplus |
+| **开源/本地** | ollama, vllm, sglang, huggingface, litellm |
+| **聚合代理** | openrouter, litellm, vercel-ai-gateway, cloudflare-ai-gateway |
+| **专业模型** | groq, fireworks, together, mistral, nvidia, arcee, chutes, venice |
+| **云厂商** | amazon-bedrock, amazon-bedrock-mantle, anthropic-vertex |
+
+**每个 provider 是一个独立的 extension 包**，通过 `openclaw.plugin.json` 声明，运行时动态加载。这个设计对我们**极其有价值**。
+
+---
+
+### 8.5 Agent 配置系统
+
+#### Workspace 文件结构（每个 Agent 有自己的工作目录）
+```
+~/.openclaw/workspace/          ← 默认工作区（可按agentId隔离）
+├── AGENTS.md                   ← 核心指令（必须存在）
+├── SOUL.md                     ← 性格/语气（可选）
+├── TOOLS.md                    ← 工具使用约定（可选）
+├── MEMORY.md                   ← 长期记忆（仅主session）
+├── memory/YYYY-MM-DD.md        ← 每日笔记
+└── skills/<skill>/SKILL.md     ← 技能手册（动态注入）
+```
+
+#### `types.agents.ts` 关键字段
+```typescript
+AgentConfig {
+  agentId: string,           // Agent唯一ID
+  workspace?: string,        // 工作区路径（隔离存储）
+  model?: AgentModelConfig,  // 每个Agent可用不同模型
+  identity?: IdentityConfig, // Agent身份（名称/头像）
+  skills?: string[],         // 允许使用的技能列表
+  sandbox?: AgentSandboxConfig, // 沙箱配置
+  subagents?: { ... },       // 子Agent配置
+}
+```
+
+#### Session 隔离规则
+```
+agent:main           → 主session，完整工具权限
+agent:dm:channel:id  → 直接对话session，沙箱默认开启
+agent:group:channel  → 群组session，沙箱默认开启
+```
+
+---
+
+### 8.6 Skills 系统（任务手册）
+
+**这是我们的"部门标准手册"概念的原型来源！**
+
+```
+skills/<skill-id>/
+├── SKILL.md          ← 技能指令（注入到系统prompt）
+├── package.json      ← 技能元数据（id/description/tools）
+└── tools/            ← 该技能专属工具（可选）
+```
+
+- 技能按需注入（不是全部塞进 prompt）
+- 支持 ClawHub（在线技能仓库，相当于应用商店）
+- 每个 Agent 可以配置允许使用哪些 Skills
+
+**对应 octowork 概念**：`Skills = 部门标准手册 + AI员工角色说明`
+
+---
+
+### 8.7 Memory 系统（向量记忆）
+
+```
+memory-host-sdk/host/
+├── internal.ts           ← SQLite + 向量搜索核心（504行）
+├── embeddings.ts         ← 多provider嵌入（329行）
+├── embeddings-openai.ts  ← OpenAI embedding
+├── embeddings-gemini.ts  ← Gemini embedding（336行）
+├── embeddings-voyage.ts  ← Voyage embedding（82行）
+├── embeddings-bedrock.ts ← AWS Bedrock（398行）
+├── embeddings-ollama.ts  ← 本地Ollama（5行，很简单）
+└── query-expansion.ts    ← 查询扩展（830行）
+```
+
+- 存储位置：`~/.openclaw/memory/<agentId>.sqlite`
+- 混合检索：**向量相似度（semantic）+ BM25关键词（exact）**
+- 自动索引：文件变更监听（1.5s debounce），自动reindex
+- Provider 自动选择：本地模型 > OpenAI > Gemini > 禁用
+
+---
+
+### 8.8 Context 压缩系统（解决 AI 失忆问题）
+
+`compact.ts`（1463行）是解决我们第五章提到的"AI失忆"的完整方案：
+
+```
+触发条件：token数接近上限（可配置阈值）
+流程：
+  1. captureCompactionCheckpointSnapshot()  ← 拍快照（保险）
+  2. hasMeaningfulConversationContent()      ← 检测是否有有效对话
+  3. resolveContextWindowInfo()              ← 计算token使用量
+  4. 调用LLM生成摘要（用专门的compact prompt）
+  5. 将摘要+最近N条消息写回session
+  6. cleanupCompactionCheckpointSnapshot()  ← 清除快照
+  7. Memory flush：将重要信息写入MEMORY.md（可选）
+```
+
+**关键**：压缩时会先执行 "memory flush"，把重要信息写入 MEMORY.md 持久化，这就是第三/四层记忆！
+
+---
+
+### 8.9 工具系统
+
+| 工具 | 文件 | 说明 |
+|------|------|------|
+| `bash` | `bash-tools.exec.ts`(1835行) | Shell命令执行，支持Docker沙箱 |
+| `read/write/edit` | `pi-tools.read.ts` `pi-tools.host-edit.ts` | 文件读写 |
+| `browser` | `extensions/browser/` | CDP控制Chrome |
+| `web_search` | `tools/web-search.ts`(61行) | 网络搜索 |
+| `web_fetch` | `tools/web-fetch.ts`(632行) | 网页抓取 |
+| `sessions_send` | `tools/sessions-send-tool.ts` | Agent发消息给Agent |
+| `cron` | `tools/cron-tool.ts` | 定时任务 |
+| `image/video/music` | `tools/*-generate-tool.ts` | 媒体生成 |
+| `canvas` | `tools/canvas-tool.ts` | 可视化工作区 |
+
+工具策略 = 多层叠加：Tool Profile → Provider Profile → Global → Agent → Session
+
+---
+
+### 8.10 商业融入方案：octowork 取代 openclaw
+
+> **目标**：用户只安装 octowork，即获得完整 AI 员工系统（无需另装 openclaw）
+
+#### 核心战略判断
+
+OpenClaw 是为**个人助手**设计的（单用户、单 Gateway、接消息平台）。
+
+octowork 的定位是**企业 AI 员工管理平台**（多 Agent、部门化、任务管理、可视化 UI）。
+
+**我们不是 clone openclaw，而是用它的核心能力构建一个不同的产品形态。**
+
+---
+
+#### 可以直接复用的部分（✅ 高价值，少改动）
+
+| 组件 | 来自 openclaw | 如何复用 |
+|------|--------------|---------|
+| **LLM 调用层** | `@mariozechner/pi-agent-core` | 直接 npm install，不需要 openclaw 框架 |
+| **Provider 插件系统** | `extensions/anthropic/ openai/ google/ ollama/...` | 直接 copy 或 npm 安装各 provider 包 |
+| **Context 压缩** | `pi-embedded-runner/compact.ts` | 核心逻辑可 copy，解决失忆问题 |
+| **Memory 向量搜索** | `memory-host-sdk/` | 完整 copy，解决长期记忆 |
+| **Skills 系统** | `agents/skills/` | 直接对应我们的"部门标准手册" |
+| **Bash 工具** | `bash-tools.exec.ts` | 直接 copy，给 AI 员工执行脚本能力 |
+| **工具策略** | `tool-policy.ts` | 控制哪些 Agent 能用哪些工具 |
+
+#### 需要自己实现的部分（⚠️ 需要重写）
+
+| 组件 | 原因 | 我们的替代方案 |
+|------|------|--------------|
+| Gateway WebSocket 服务 | openclaw 的 Gateway 是为消息平台设计的 | octowork 已有 backend/server.js（Express + WS），在其基础上扩展 |
+| 消息平台接入（WhatsApp等） | 完全不需要 | 已有 octowork-chat UI |
+| 多租户/商业授权 | openclaw 是个人工具，无商业授权 | 需要自建：License + 用户管理 + 部门权限 |
+| Agent 创建 UI | openclaw 用配置文件 | octowork 需要可视化创建界面（这是产品核心） |
+| 部门管理 | openclaw 无部门概念 | octowork 已有（10个部门，62个员工），需要UI化 |
+| 任务看板 | openclaw 无 | 已有 Pipeline 系统，继续完善 |
+
+---
+
+#### 融入路线图（三个阶段）
+
+**Phase 1：替换 LLM 调用层（2-3天）**
+```
+目标：去掉 spawn('openclaw') CLI 调用
+方案：直接用 pi-agent-core + provider extension 替换 backend/api/openclaw.js
+改动文件：backend/api/openclaw.js（重写）、backend/package.json（加依赖）
+效果：用户不再需要安装 openclaw CLI
+```
+
+**Phase 2：接入 Skills + Memory 系统（1周）**
+```
+目标：AI 员工有长期记忆，有技能手册，不会失忆
+方案：
+  - 每个 Bot 的 ~/octowork/departments/{dept}/agents/{botId}/ 作为 workspace
+  - workspace/AGENTS.md = Bot 角色说明（现有的 ai-directory.json 转换）
+  - workspace/SOUL.md = 性格设定
+  - workspace/skills/ = 部门标准手册（现有 task_box 内容）
+  - 接入 memory-host-sdk 提供向量记忆
+效果：AI 员工有角色、有技能、有记忆
+```
+
+**Phase 3：工具能力 + 商业化（2-4周）**
+```
+目标：AI 员工可以执行真实任务（写代码/搜索/操作文件）
+方案：
+  - 接入 bash-tools（沙箱化，按部门配置权限）
+  - 接入 web-search / web-fetch
+  - 构建 Agent 创建 UI（octowork 特色）
+  - 构建部门管理 UI
+  - 接入商业授权系统（License Key）
+效果：完整 AI 员工平台，商业可用
+```
+
+---
+
+#### 关键技术决策
+
+1. **不需要跑完整的 openclaw Gateway**
+   - 只需要 `pi-agent-core` 库 + provider extension 包
+   - 我们用自己的 Express + WebSocket 作为控制平面
+
+2. **Node.js 版本**
+   - openclaw 要求 Node >= 22（甚至推荐 24）
+   - octowork 目前用 Node 18，**升级到 Node 22 是必须的**
+
+3. **工作区路径映射**
+   ```
+   openclaw: ~/.openclaw/workspace/<agentId>/
+   octowork: ~/octowork/departments/<dept>/agents/<botId>/
+   ```
+   概念完全对应，只需改路径。
+
+4. **模型配置 UI**（商业核心功能）
+   - 在 octowork-chat 界面里直接配置：选 provider、填 API Key、选模型
+   - 支持按部门/按 Agent 配置不同模型
+   - 支持 API Key 轮换（openclaw 的 auth-profiles 系统可以参考）
+
+5. **部门 = 多 Agent 隔离**
+   - 每个部门有独立的 workspace
+   - 部门 Leader 可以向成员发消息（sessions_send tool）
+   - 部门间可以通过群聊协作
+
+---
+
+#### 商业运营视角
+
+| 功能 | openclaw（开源免费） | octowork（我们的商业产品） |
+|------|---------------------|------------------------|
+| 接入渠道 | WhatsApp/Telegram 等 | 专属 UI（octowork-chat） |
+| Agent 管理 | 手动编辑配置文件 | 可视化创建/管理 |
+| 部门/团队 | 无 | 有（核心差异化） |
+| 任务管理 | 无 | 有（Pipeline 看板） |
+| 商业授权 | MIT 免费 | License Key 授权 |
+| 用户目标 | 极客/开发者 | 企业/团队 |
+| 数字公寓 | 无 | 有（~/octowork/ 体系） |
+| 记忆系统 | 文件 + 向量DB | 同上（复用） |
+| 模型支持 | 30+ provider | 同上（复用） |
+
+**核心竞争力**：我们在 openclaw 的 AI 执行能力基础上，加了**企业级的 Agent 管理、部门协作、任务看板、可视化运营**，这是 openclaw 完全没有的。
+
+---
+
+### 8.11 立即可行的第一步
+
+**目标**：在不破坏现有功能的前提下，先把 `spawn('openclaw')` 替换掉。
+
+```javascript
+// backend/api/openclaw.js 改造方向
+// 方案A：直接调 LLM API（最快，2小时）
+import Anthropic from '@anthropic-ai/sdk'
+const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
+async function sendMessage(botId, message, sessionId, systemPrompt) {
+  // 从 ~/octowork/data/sessions/{sessionId}.json 读历史
+  const history = await loadSessionHistory(sessionId)
+  const response = await client.messages.create({
+    model: 'claude-opus-4-5',
+    max_tokens: 8192,
+    system: systemPrompt,           // 从 Bot 的 workspace/AGENTS.md 读取
+    messages: [...history, { role: 'user', content: message }],
+  })
+  // 保存到历史
+  await saveSessionHistory(sessionId, history, message, response)
+  return response.content[0].text
+}
+
+// 方案B：用 pi-agent-core（更完整，但需要升级 Node 22，1-2天）
+import { createAgentSession } from '@mariozechner/pi-coding-agent'
+```
+
+**建议先走方案A**，证明可行后再迁移到 pi-agent-core。
