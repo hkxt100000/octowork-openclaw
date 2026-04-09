@@ -1,0 +1,17 @@
+{
+  "name": "octowork-chat",
+  "version": "1.0.0",
+  "description": "OctoWork AI Team Chat Manager",
+  "main": "launcher.js",
+  "scripts": {
+    "start": "node launcher.js"
+  },
+  "dependencies": {
+    "bytenode": "^1.5.0",
+    "sqlite3": "^5.1.6",
+    "dotenv": "^16.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

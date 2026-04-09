@@ -1,0 +1,152 @@
+{
+  "notifications": [
+    {
+      "id": "release-v1.0.0",
+      "type": "release",
+      "title": "v1.0.0 - OctoWork 正式发布",
+      "date": "2026-03-28",
+      "version": "1.0.0",
+      "summary": "首个正式版：16 位 AI 员工、7 种聊天模式、群聊协作、任务中心、License 授权体系",
+      "content": "### 核心功能\n- 16 位 AI 员工（指挥官、记忆大师、图书管理员等）\n- 7 种聊天模式（说人话、交流探讨、深度思考、方案报告、任务工作、创意脑暴、快速决策）\n- AI 群聊协作（多 Bot @对话、管理员广播）\n- 任务中心 + 看板（Kanban 拖拽管理）\n- AI 电池系统（Token 用量可视化 + 自动充电）\n- License 授权（机器指纹绑定 + 有效期管理）\n\n### 基础设施\n- 前后端分离（Vue3 + Node.js + Express + WebSocket）\n- SQLite 持久化（聊天记录、群组、任务）\n- 用户版打包系统（V8 字节码保护 + tar.gz 分发）",
+      "downloadUrl": "",
+      "importance": "high",
+      "tags": ["major-release", "first-release"]
+    },
+    {
+      "id": "release-v1.1.5",
+      "type": "release",
+      "title": "v1.1.5 - 任务看板修复 + 双平台版本检测",
+      "date": "2026-04-08",
+      "version": "1.1.5",
+      "summary": "修复任务看板4项显示问题，版本检测支持 Gitee/GitHub 双平台，团队名称中文化",
+      "content": "### 修复\n- 任务看板 TokVideoGroup 进度显示异常（ready 状态未识别为当前步骤）\n- ReleaseOps 已完成项目不显示（新增完成态展示）\n- 团队名称从英文目录名改为中文名称（读取 team_config.json）\n- 团队描述限制 15 字自动截断\n\n### 新功能\n- 版本检测双平台支持（Gitee 优先 + GitHub 兜底）\n- 通知服务双平台 releases.json 拉取\n- 后端版本检查 API 返回格式修正",
+      "downloadUrl": "",
+      "importance": "high",
+      "tags": ["bugfix", "dual-platform", "taskboard"]
+    },
+    {
+      "id": "release-v1.1.0",
+      "type": "release",
+      "title": "v1.1.0 - 通知中心 + 自动升级",
+      "date": "2026-04-06",
+      "version": "1.1.0",
+      "summary": "新增通知铃铛、版本检测横幅、一键升级系统，开发/用户版共用统一数据源",
+      "content": "### 新功能\n- 驾驶舱通知铃铛（红标未读计数 + 滑出通知面板）\n- 聊天窗口版本更新横幅（检测到新版本时顶部提示）\n- 版本升级弹窗（更新内容详情 + 一键升级按钮）\n- releases.json 统一数据源（开发版/用户版共享）\n\n### 优化\n- 根目录垃圾文件清理（减少 373MB）\n- 脚本整理迁移至 tools/ 目录\n- .gitignore 完善（防止垃圾文件被提交）\n- 版本检测 composable 重写（15s 延迟首检 + 6h 轮询）",
+      "downloadUrl": "",
+      "importance": "high",
+      "tags": ["feature", "notification", "auto-update"]
+    },
+    {
+      "id": "announce-octo-academy",
+      "type": "announcement",
+      "title": "OctoWork 章鱼学院即将上线",
+      "date": "2026-04-08",
+      "summary": "AI 培训课程模块进入内测阶段，敬请期待",
+      "content": "### 章鱼学院\n章鱼学院是 OctoWork 内置的 AI 培训与知识共享平台。\n\n**即将包含：**\n- AI 员工使用教程（从入门到精通）\n- 行业最佳实践案例\n- 自定义 AI 技能训练课程\n- 团队协作工作流模板\n\n> 目前正在内测中，预计 v1.2.0 正式上线。",
+      "importance": "medium",
+      "tags": ["academy", "coming-soon"]
+    },
+    {
+      "id": "announce-crm",
+      "type": "announcement",
+      "title": "企微 CRM 集成开发中",
+      "date": "2026-04-06",
+      "summary": "企业微信客户管理功能即将到来，支持自动回复和数据同步",
+      "content": "### 企微 CRM\n企业微信集成模块正在开发中，将支持：\n\n- 客户关系管理（联系人、标签、分组）\n- 智能自动回复（AI 员工值班接待）\n- 聊天记录同步与分析\n- 营销活动管理\n\n> 预计 v1.3.0 上线",
+      "importance": "low",
+      "tags": ["crm", "wecom", "coming-soon"]
+    },
+    {
+      "id": "feature-skill-market",
+      "type": "feature",
+      "title": "AI 技能市场新技能预告",
+      "date": "2026-04-05",
+      "summary": "即将上线 SEO 分析、短视频脚本、数据报表等新技能",
+      "content": "### 技能市场更新预告\n\n以下新技能即将上线：\n\n1. **SEO 智能分析** - 自动分析网站 SEO 并生成优化建议\n2. **短视频脚本生成** - 根据主题一键生成抖音/小红书脚本\n3. **数据报表大师** - Excel 数据自动可视化与分析\n4. **邮件营销助手** - 智能撰写营销邮件 + A/B 测试建议\n\n> 敬请期待 v1.2.0 更新",
+      "importance": "medium",
+      "tags": ["skill-market", "new-skills"]
+    },
+    {
+      "id": "tip-chat-modes",
+      "type": "tip",
+      "title": "快捷键切换聊天模式",
+      "date": "2026-04-04",
+      "summary": "使用 Alt+1~7 快速切换 7 种聊天模式，提升工作效率",
+      "content": "### 聊天模式快捷键\n\n| 快捷键 | 模式 | 适用场景 |\n|--------|------|----------|\n| Alt+1 | 说人话 | 日常快速沟通 |\n| Alt+2 | 交流探讨 | 分析讨论问题 |\n| Alt+3 | 深度思考 | 复杂问题深入分析 |\n| Alt+4 | 方案报告 | 需要正式文档输出 |\n| Alt+5 | 任务工作 | 执行具体任务 |\n| Alt+6 | 创意脑暴 | 头脑风暴想点子 |\n| Alt+7 | 快速决策 | 需要明确结论 |\n\n> 在聊天界面直接使用即可！",
+      "importance": "low",
+      "tags": ["tip", "shortcut"]
+    },
+    {
+      "id": "maintenance-20260410",
+      "type": "maintenance",
+      "title": "系统维护通知（示例）",
+      "date": "2026-04-10",
+      "summary": "示例维护通知模板，实际使用时替换内容",
+      "content": "### 维护详情\n\n- **时间：** 2026-04-10 02:00 ~ 04:00 (UTC+8)\n- **影响：** 在线 API 服务暂停\n- **原因：** 数据库迁移与性能优化\n\n> 本地部署用户不受影响。",
+      "importance": "medium",
+      "tags": ["maintenance", "example"]
+    },
+    {
+      "id": "welcome-getting-started",
+      "type": "tip",
+      "title": "欢迎使用 OctoWork！快速上手指南",
+      "date": "2026-03-28",
+      "summary": "3 分钟了解 OctoWork 核心功能，快速开始与 AI 员工协作",
+      "content": "### 欢迎来到 OctoWork\n\n感谢选择 OctoWork 智能工作平台！以下是快速上手步骤：\n\n1. **选择 AI 员工** — 在驾驶舱点击任意 Bot 卡片开始对话\n2. **切换聊天模式** — 使用 Alt+1~7 选择最适合的沟通方式\n3. **创建群聊** — 邀请多个 AI 员工协同工作\n4. **管理任务** — 在任务中心追踪和分配工作\n5. **查看日志** — 实时日志流帮你掌握全局动态\n\n> 有任何问题，随时在聊天中 @指挥官 获取帮助！",
+      "importance": "high",
+      "tags": ["welcome", "getting-started", "onboarding"]
+    },
+    {
+      "id": "tip-group-chat",
+      "type": "tip",
+      "title": "群聊协作：让多个 AI 员工一起工作",
+      "date": "2026-04-01",
+      "summary": "学会使用 AI 群聊功能，让不同专长的 Bot 协同完成复杂任务",
+      "content": "### AI 群聊协作技巧\n\n**创建群聊：**\n1. 点击左侧导航「群聊」标签\n2. 点击「新建群聊」按钮\n3. 选择需要参与的 AI 员工\n\n**高效使用技巧：**\n- 使用 **@Bot名称** 指定某个 AI 回答\n- 使用 **@全体** 让所有成员参与讨论\n- 管理员可以发送 **广播消息** 给所有群组\n\n**推荐组合：**\n- 内容创作：内容创作者 + 设计师 + 营销专员\n- 数据分析：数据分析师 + 产品经理 + 增长黑客\n- 项目管理：指挥官 + QA + DevOps",
+      "importance": "medium",
+      "tags": ["tip", "group-chat", "collaboration"]
+    },
+    {
+      "id": "tip-task-center",
+      "type": "tip",
+      "title": "任务中心：用看板管理 AI 工作流",
+      "date": "2026-04-02",
+      "summary": "使用 Kanban 看板高效管理 AI 任务，支持拖拽排序和状态追踪",
+      "content": "### 任务中心使用指南\n\n**看板功能：**\n- **待处理** → **进行中** → **已完成**，拖拽即可切换状态\n- 为任务设置优先级（高/中/低）\n- 分配给指定 AI 员工执行\n\n**快速创建任务：**\n1. 在聊天中对 AI 说「创建任务：XXX」\n2. 或在任务中心点击「+」按钮手动创建\n\n**任务统计：**\n- 驾驶舱概览卡片显示实时任务数据\n- 支持按时间、状态、AI 员工筛选",
+      "importance": "medium",
+      "tags": ["tip", "task-center", "kanban"]
+    },
+    {
+      "id": "tip-battery-system",
+      "type": "tip",
+      "title": "AI 电池系统：了解你的 Token 用量",
+      "date": "2026-04-03",
+      "summary": "AI 电池可视化 Token 消耗，合理分配资源，自动充电不断档",
+      "content": "### AI 电池系统说明\n\n每位 AI 员工都有独立的 **电池（Token 额度）** 系统：\n\n- **电量显示：** Bot 卡片上显示当前剩余电量百分比\n- **自动充电：** 每日自动重置电量额度\n- **用量统计：** 查看每次对话的 Token 消耗明细\n\n**节省电量小技巧：**\n- 使用「说人话」模式进行简单沟通（消耗少）\n- 复杂任务使用「深度思考」模式（消耗多但质量高）\n- 批量任务建议使用「任务工作」模式\n\n> 电量不足时系统会自动提醒，无需担心中断。",
+      "importance": "low",
+      "tags": ["tip", "battery", "token"]
+    },
+    {
+      "id": "announce-security-update",
+      "type": "announcement",
+      "title": "安全更新：License 授权体系已生效",
+      "date": "2026-03-30",
+      "summary": "机器指纹绑定 + 有效期管理，保障您的数据安全",
+      "content": "### License 授权说明\n\nOctoWork 采用 **机器指纹绑定** 授权方式：\n\n- **授权绑定：** 一台设备一个 License，确保安全\n- **有效期管理：** License 到期前系统会提前通知\n- **离线可用：** 授权后可完全离线使用，数据不外传\n\n**如何获取 License：**\n1. 运行安装脚本后，系统会生成机器指纹\n2. 将指纹发送给管理员\n3. 收到 `license.key` 文件放入程序目录\n4. 重启即可使用\n\n> 所有数据均存储在本地 `~/octowork` 目录，完全私有。",
+      "importance": "medium",
+      "tags": ["security", "license", "announcement"]
+    }
+  ],
+  "latest_version": "1.1.5",
+  "minimum_version": "1.0.0",
+  "notification_types": {
+    "release": { "icon": "rocket", "label": "版本更新", "color": "#007AFF" },
+    "announcement": { "icon": "megaphone", "label": "官方公告", "color": "#FF9500" },
+    "feature": { "icon": "sparkles", "label": "功能预告", "color": "#AF52DE" },
+    "tip": { "icon": "lightbulb", "label": "使用技巧", "color": "#34C759" },
+    "maintenance": { "icon": "wrench", "label": "维护通知", "color": "#FF3B30" },
+    "promotion": { "icon": "gift", "label": "活动推广", "color": "#FF2D55" },
+    "academy": { "icon": "book", "label": "学院动态", "color": "#5856D6" },
+    "skill": { "icon": "puzzle", "label": "技能上新", "color": "#00C7BE" }
+  }
+}

@@ -1,0 +1,112 @@
+═══════════════════════════════════════════════════════════════
+🐙 OctoWork Logo 标准生成提示词 - 快速复制版
+═══════════════════════════════════════════════════════════════
+
+📌 标准参考图：/home/user/webapp/docs/octowork-brand/social-media/icon-only.png
+
+═══════════════════════════════════════════════════════════════
+🎯 纯Logo图标（无文字） - 推荐使用 ⭐⭐⭐⭐⭐
+═══════════════════════════════════════════════════════════════
+
+A cute cartoon octopus mascot with blue-purple gradient colors. The octopus has:
+- Round head with AI brain pattern (neural network circuit lines) visible on top
+- Wearing round black-framed glasses
+- Large friendly eyes with white highlights
+- Gentle smile expression
+- Left tentacle giving thumbs up gesture
+- Right tentacle making OK hand sign (thumb and index finger forming circle)
+- 8 tentacles total with suction cups visible
+- Blue to purple gradient: light blue (#4169E1) on head transitioning to purple (#9370DB) on lower tentacles
+- Smooth cartoon style with clean outlines
+- White or transparent background
+- No text, icon only
+- Square format, centered composition
+
+═══════════════════════════════════════════════════════════════
+📝 完整Logo（带OctoWork文字）
+═══════════════════════════════════════════════════════════════
+
+A complete brand logo with two parts:
+
+TOP PART - Octopus Icon:
+- Cute cartoon octopus mascot
+- Blue-purple gradient colors (light blue #4169E1 to purple #9370DB)
+- Round head with AI brain pattern (neural network lines) on top
+- Wearing round black-framed glasses
+- Large friendly eyes with white highlights
+- Gentle smile
+- Left tentacle: thumbs up gesture
+- Right tentacle: OK hand sign
+- 8 tentacles total with visible suction cups
+- Cartoon style with clean outlines
+
+BOTTOM PART - Text:
+- "OctoWork" text below the octopus
+- "Octo" in blue-purple gradient (#4169E1 to #9370DB)
+- "Work" in dark gray (#333333) or black
+- Modern rounded sans-serif font
+- Clean and professional typography
+
+LAYOUT:
+- Octopus icon centered on top
+- Text "OctoWork" centered below
+- White or light background
+- Balanced vertical composition
+- Square or portrait format
+
+═══════════════════════════════════════════════════════════════
+🎨 颜色参考
+═══════════════════════════════════════════════════════════════
+
+主蓝色：#4169E1 (头部)
+主紫色：#9370DB (触手)
+青绿色：#20B2AA (高光，可选)
+深灰色：#333333 (文字"Work")
+纯白色：#FFFFFF (背景)
+
+═══════════════════════════════════════════════════════════════
+🔧 常用变体
+═══════════════════════════════════════════════════════════════
+
+深色模式：
+[标准提示词] + "dark mode version, white outline, suitable for dark backgrounds, background color #1a1a1a"
+
+单色版：
+[标准提示词] + "monochrome version, single color navy blue (#2c3e50), no gradients"
+
+3D版：
+[标准提示词] + "3D render style, soft lighting, slight shadows, glossy surface"
+
+═══════════════════════════════════════════════════════════════
+✅ 质量检查清单
+═══════════════════════════════════════════════════════════════
+
+生成后请检查：
+□ AI大脑图案清晰可见
+□ 戴圆形黑框眼镜
+□ 左手竖大拇指
+□ 右手做OK手势
+□ 共8条触手
+□ 蓝紫渐变自然
+□ 表情友好微笑
+□ 背景干净（白色或透明）
+
+═══════════════════════════════════════════════════════════════
+📞 技术支持
+═══════════════════════════════════════════════════════════════
+
+详细文档：/home/user/webapp/docs/octowork-brand/LOGO-PROMPTS.md
+快速查看：/home/user/webapp/docs/octowork-brand/QUICK-VIEW.md
+资源总览：/home/user/webapp/docs/octowork-brand/📦-资源总览.md
+
+═══════════════════════════════════════════════════════════════
+🎉 推荐AI模型
+═══════════════════════════════════════════════════════════════
+
+⭐⭐⭐⭐⭐ nano-banana-pro (本项目使用)
+⭐⭐⭐⭐ DALL-E 3
+⭐⭐⭐ Midjourney v6
+
+═══════════════════════════════════════════════════════════════
+最后更新：2026-03-18 | OctoWork v1.0
+═══════════════════════════════════════════════════════════════

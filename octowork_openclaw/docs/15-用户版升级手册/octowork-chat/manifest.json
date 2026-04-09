@@ -1,0 +1,20 @@
+{
+  "latest": "1.1.5",
+  "minimum": "1.0.0",
+  "changelog": "### 修复\n- 任务看板 TokVideoGroup 进度显示异常\n- ReleaseOps 已完成项目不显示\n- 团队名称从英文目录名改为中文名称\n- 团队描述限制 15 字自动截断\n\n### 新功能\n- 版本检测双平台支持（Gitee 优先 + GitHub 兜底）\n- 通知服务双平台 releases.json 拉取\n- 后端版本检查 API 返回格式修正",
+  "downloads": {
+    "darwin-x64": "",
+    "darwin-arm64": "",
+    "win32-x64": "",
+    "linux-x64": ""
+  },
+  "sha256": {
+    "darwin-x64": "",
+    "darwin-arm64": "",
+    "win32-x64": "",
+    "linux-x64": ""
+  },
+  "downloadUrl": "",
+  "releaseDate": "2026-04-08",
+  "note": "下载链接在 tar.gz 打包后由 Jason 手动填写"
+}

@@ -1,0 +1,20 @@
+此文件为 server.jsc 占位说明。
+
+实际 server.jsc 已构建成功（2026-04-06）：
+  - 大小: 1.9 MB
+  - SHA-256: 6a344d55d399cd71bcb86a37b04866a8341454c31158df947e9d80033e23735b
+  - Node.js: v20.19.6
+  - ncc: 0.38.4 (打包 1081KB 单文件)
+  - bytenode: 1.5.7 (编译为 V8 字节码)
+
+构建命令:
+  cd backend && npx ncc build server.js -o ../release/build-tmp/ --minify
+  npx bytenode --compile release/build-tmp/index.js
+
+安全验证:
+  - 二进制格式，完全不可读
+  - strings 搜索无密钥值泄露
+  - SHA-256 完整性校验（launcher.js 内嵌哈希）
+  - 修改任意字节将导致启动失败
+
+完整发布包位于: release/octowork-chat-v1.0.0-linux-x64.tar.gz (20MB)

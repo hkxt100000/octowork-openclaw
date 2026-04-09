@@ -1,0 +1,37 @@
+# 文档重组计划
+
+## 01-getting-started/ (快速开始)
+- User_Manual.md → 01-getting-started/
+- DEPLOYMENT_GUIDE.md → 01-getting-started/
+
+## 02-development/ (开发文档)
+- Developer_Guide.md → 02-development/
+- API.md → 02-development/
+- chat-modes/ → 02-development/chat-modes/
+
+## 03-architecture/ (架构文档)
+- ../STRUCTURE_VERIFICATION_REPORT.md → 03-architecture/
+- ../FEATURE_CHECKLIST.md → 03-architecture/
+- ../PROJECT_MEMORY.md → 03-architecture/
+- ../VERIFICATION_SUMMARY.md → 03-architecture/
+
+## 04-testing/ (测试报告)
+- Phase3_E2E_Testing_Report.md → 04-testing/
+- Phase5_Integration_Test_Plan.md → 04-testing/
+- Phase5_Preliminary_Test_Report.md → 04-testing/
+- Phase5_Integration_Test_Report_Final.md → 04-testing/
+- Phase5_Testing_Report_Final_v3.md → 04-testing/
+- FULL_SYSTEM_TEST_CHECKLIST.md → 04-testing/
+- FULL_SYSTEM_TEST_REPORT.md → 04-testing/
+- BROWSER_COMPATIBILITY_TESTING.md → 04-testing/
+- PHASE5_ALL_TESTS_SUMMARY.md → 04-testing/
+
+## 05-reports/ (项目报告)
+- PROJECT_FINAL_REPORT.md → 05-reports/
+- PROJECT_DELIVERY_REPORT.md → 05-reports/
+- DEVELOPMENT_CHECKLIST_STATUS.md → 05-reports/
+- FUNCTIONAL_VERIFICATION_CHECKLIST.md → 05-reports/
+
+## 06-planning/ (计划)
+- TODO_智能防卡顿引擎.md → 06-planning/
+- PROJECT_PROGRESS_SUMMARY.md → 06-planning/

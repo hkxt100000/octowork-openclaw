@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Octowork">
+  <meta name="theme-color" content="#007aff">
+  <title>Octowork 章鱼八爪齐开，替你干活 🚀</title>
+  
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="/manifest.json">
+  
+  <!-- App Icons -->
+  <link rel="icon" type="image/png" sizes="32x32" href="/logo/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/logo/favicon-192.png">
+  <link rel="apple-touch-icon" href="/logo/favicon-192.png">
+  <script type="module" crossorigin src="/assets/index-B_uLzX_j.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-Ci5m25Hr.css">
+</head>
+<body>
+  <div id="app"></div>
+  
+  <!-- PWA Service Worker -->
+  <script>
+    // 检查是否独立窗口模式，独立窗口不注册Service Worker
+    const urlParams = new URLSearchParams(window.location.search)
+    if (urlParams.has('standalone')) {
+      console.log('🪟 独立窗口模式，跳过 Service Worker 注册')
+    } else if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        // 只在 HTTPS 或 localhost 下注册 Service Worker
+        const isSecureContext = location.protocol === 'https:' || 
+                               location.hostname === 'localhost' || 
+                               location.hostname === '127.0.0.1';
+        
+        if (!isSecureContext) {
+          console.log('⚠️ 非安全上下文，跳过 Service Worker 注册');
+          console.log('💡 提示：PWA 功能需要 HTTPS 或 localhost');
+          return;
+        }
+
+        navigator.serviceWorker.register('/sw.js')
+          .then(registration => {
+            console.log('✅ Service Worker 注册成功:', registration.scope);
+            
+            // 检查更新
+            registration.addEventListener('updatefound', () => {
+              const newWorker = registration.installing;
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  console.log('🔄 新版本可用，刷新页面更新');
+                  if (confirm('发现新版本，是否立即更新？')) {
+                    newWorker.postMessage({ type: 'SKIP_WAITING' });
+                    window.location.reload();
+                  }
+                }
+              });
+            });
+          })
+          .catch(err => {
+            console.error('❌ Service Worker 注册失败:', err);
+          });
+      });
+    }
+  </script>
+</body>
+</html>
