@@ -1324,3 +1324,54 @@ import { createAgentSession } from '@mariozechner/pi-coding-agent'
 ```
 
 **建议先走方案A**，证明可行后再迁移到 pi-agent-core。
+
+---
+
+### 8.12 融入平台方案草案（PM视角总结）
+
+> 完整草案文件：`融入平台方案/草案-OctoWork集成AI工具执行能力.md`
+
+**核心目标**：用户只安装 OctoWork，AI 员工就能操作电脑工具，无需安装 OpenClaw。
+
+#### 技术选择（最终确认）
+- **方案 A（已选定）**：直接 fetch LLM API，自己管 session 和工具执行循环
+- **不用** `@mariozechner/pi-agent-core`（依赖复杂、需要 Node 22，自己实现不超过 200 行）
+- **不嵌入** OpenClaw 进程（丧失控制权、用户还需安装 OC）
+
+#### 新增后端核心模块（`backend/src/llm-agent/`）
+
+| 文件 | 职责 |
+|------|------|
+| `llm-client.js` | fetch 封装，支持 OpenAI/Anthropic/Gemini/Ollama |
+| `tool-registry.js` | 工具 JSON Schema 注册，告诉 LLM 有哪些工具 |
+| `tool-executor.js` | 接收 LLM 返回的 tool_call，分发执行 |
+| `loop-runner.js` | ReAct 循环：LLM推理 → tool_call → 执行 → 追加结果 → 再推理 |
+| `system-prompt.js` | 根据 Agent 配置生成 system prompt |
+| `tools/exec-tool.js` | child_process 执行 shell 命令 |
+| `tools/fs-tool.js` | 文件读写（限定 workspace_dir） |
+| `tools/web-search-tool.js` | 搜索（DuckDuckGo/Brave API） |
+| `tools/web-fetch-tool.js` | 网页抓取 |
+
+#### V1 工具清单（5个）
+`exec` / `read_file` / `write_file` / `web_search` / `web_fetch`
+
+#### 数据库新增（最小化）
+- `model_providers` 表：存多提供商 API Key + Base URL
+- `tool_executions` 表：审计日志
+- `bots` 表扩展：`allowed_tools`, `workspace_dir`, `max_turns`, `model_provider_id`, `model_id`
+
+#### 安全策略（V1）
+- 工具白名单（per-Agent 配置）
+- workspace_dir 路径限制
+- 命令 30 秒超时
+- 危险命令黑名单拦截
+- 输出截断 50KB
+
+#### 开发计划
+- **Phase 1（1周）**：LLM Client + Loop Runner + exec/fs 工具 + botController 改造
+- **Phase 2（+3天）**：模型配置 UI + web_search/web_fetch 工具
+- **Phase 3（+3天）**：Agent 工具权限 UI + 安全加固 + 审计日志
+
+#### OctoWork vs OpenClaw 核心差异
+- OctoWork 新增：Agent 管理 UI、部门/团队管理、任务看板、独立安装零依赖
+- OpenClaw 独有（V2 规划）：Docker 沙箱、记忆/Embedding、消息平台集成
